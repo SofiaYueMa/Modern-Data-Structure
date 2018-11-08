@@ -1,0 +1,110 @@
+---
+title: "Final submission homework 7 of Yue Ma"
+author: "Yue Ma"
+date: "11/5/2018"
+always_allow_html: yes
+output: 
+   html_document:
+     keep_md: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Calling an API using httr
+
+## 1. Define the base URL
+
+```{r echo=FALSE}
+library(httr)
+library(purrr)
+R.home(component = "home")
+endpoint <- "https://data.lacity.org/resource/7fvc-faax.csv"
+endpoint
+```
+
+## 2. Send a simple GET request
+```{r echo=FALSE}
+LA_crime <- GET(endpoint)
+str(LA_crime, max.level = 1)
+```
+
+From the information above, we can see that the status code starts with 2, so it is great.
+The structure of the response is as above as well.
+
+## 3. Get the content of the response
+```{r echo=FALSE}
+content_LA_crime <- content(LA_crime)
+dim(content_LA_crime)
+table(content_LA_crime$area_name)
+```
+
+There are 1000 observations of 36 variables in the data frame. The table shows the areas of the observations included.
+
+## 4. Get your access token
+```{r echo=FALSE}
+query_params <- list(
+  "$$app_token" = Sys.getenv("LACRIME_APP_TOKEN"),
+  "$limit" = "10000")
+    
+parameter_response <-
+  GET("https://data.lacity.org", 
+      query = query_params)
+
+parameter_response$status_code
+```
+From the result above, after resending the query with the fields: "limit" = "10000" and "app_token" = Sys.getenv("LACRIME_APP_TOKEN") as query parameterswe, we can see that the status of the server response with 200 is great.
+
+## 5. Limiting your query
+```{r echo=FALSE}
+query_params1 <- list(
+  "$$app_token" = Sys.getenv("LACRIME_APP_TOKEN"),
+  "$limit" = "10000",
+  "area_id" = "01",
+  "vict_sex" = "M")
+    
+parameter_response1 <-
+  GET("https://data.lacity.org", 
+      query = query_params1)
+
+parameter_response1$status_code
+```
+
+I added two more query field parameters - area id and victim sex. I select area id = 01, which selects Central area. I aslo select victim sex = M, which selects male victims.
+The status of the server response is 200, so it is still great.
+
+## 6. Locations
+```{r echo=FALSE}
+library(plyr)
+library(dplyr)
+library(tidyr)
+LA_crime_location <- content_LA_crime %>%
+  select(location_1) %>%
+  head(50) %>%
+  separate(location_1, c("point", "longitude1", "latitude"), sep = " ")%>%
+  select(latitude, longitude1) %>%
+  separate(latitude, c("latitude", "none")) %>%
+  unite(latitude, latitude, none, sep = ".") %>%
+  separate(longitude1, c("none1", "longitude1"), sep = "-") %>%
+  select(latitude, longitude1)
+LA_crime_location$longitude1 = as.numeric(as.character(LA_crime_location$longitude1))
+LA_crime_location$latitude = as.numeric(as.character(LA_crime_location$latitude))
+LA_crime_location <- LA_crime_location %>%
+  mutate(longitude = longitude1 * (-1)) %>%
+  select(latitude, longitude) %>%
+  unite(latlng, latitude, longitude, sep = ",")
+
+
+for (i in 1:50) {
+  url <- paste("https://maps.googleapis.com/maps/api/geocode/json?", "latlng=", LA_crime_location[i,1], "&key=", Sys.getenv("GOOGLE_MAP_KEY"), sep = "")
+  result <- GET(url)
+  Sys.sleep = 0.1
+  if(http_error(result)){
+	warning("The request produced an error.")
+} else {
+  print(content(result)$results[[1]]$formatted_address)
+}}
+
+```
+From the results above, we can see the addresses for 50 entries in my dataset based on their latitude and longitude. 
