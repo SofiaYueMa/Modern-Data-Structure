@@ -1,0 +1,169 @@
+---
+title: "Final submission homework 6 of Yue Ma"
+author: "Yue Ma"
+date: "10/25/2018"
+always_allow_html: yes
+output: 
+   html_document:
+     keep_md: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 1. Words in Ulysses
+
+```{r include=FALSE}
+library(stringr)
+library(gutenbergr)
+gutenberg_works(author == "Joyce, James")
+book <- gutenberg_download(4300)
+book
+library(tidytext)
+library(tidyverse)
+words <- book %>%
+  unnest_tokens(word, text) %>%
+  select(word)
+words
+```
+
+## a) Words with z
+
+```{r echo=FALSE}
+words <- unlist(words)
+words_z <- unique(str_subset(words, "[zZ]"))
+words_z
+v4 <- unique(words)
+number_as <- str_count(words_z, "[zZ]")
+table(number_as)
+```
+
+The results above show the all unique words that contain at least one z.
+The table shows how many z's the words contain: 293 words contain one z, 46 words contain two z's, 1 word contain 3 z's.
+
+```{r echo=FALSE}
+str_subset(v4, pattern = "^.*[zZ].+[zZ].*")
+```
+From the results above, we can see that word - "százharminczbrojúgulyás" has the farest distance between consecutive z's. There are 7 characters bewteen consectutive z's.
+
+## b) Vowels
+```{r echo=FALSE}
+v1 <- str_count(v4, pattern = "^[aeiouAEIOU].*[aeiouAEIOU]$")
+table(v1)
+```
+
+From the results, we can see that there 876 unique words start and end with a vowel.
+
+```{r echo=FALSE}
+v2 <- str_subset(words, pattern = "^[aeiouAEIOU]+[aeiouAEIOU]")
+v2 <- unique(v2)
+head(v2)
+length(v2)
+```
+
+There are 341 unique words that start with two or more vowels. For instance,  "air"  "out"  "oak"  "ouns" "aunt" "our", etc.
+
+```{r echo=FALSE}
+v3 <- unique(str_subset(words, pattern = "[aeiouAEIOU](?=[aeiouAEIOU])"))
+v3 <- str_subset(v3, pattern = "[aeiouAEIOU]{3,}")
+table(str_count(v3, "[aeiouAEIOU]"))
+v3[str_count(v3, "[aeiouAEIOU]") == 21]
+```
+
+From the results, we can see that word - "frseeeeeeeeeeeeeeeeeeeefrong" has the most consecutive vowels with 20 consecutive vowels.
+
+## c) English spelling
+
+```{r echo=FALSE}
+v5 <- str_subset(v4, pattern = "(?<=[cC])[iI](?=[eE])") #cie
+v6 <- str_subset(v4, pattern = "(?<=[^cC])[eE](?=[iI])") #ei not preceded by c
+number_not_rule = length(v5) + length(v6)
+paste("Number of words without rules:", number_not_rule)
+v7 <- str_subset(v4, pattern = "(?<=[^cC])[iI](?=[eE])") #ie not preceded by c
+v8 <- str_subset(v4, pattern = "(?<=[cC])[eE](?=[iI])") #ei after c
+number_rule = length(v7) + length(v8)
+paste("Number of words with rules:", number_rule)
+library(scales)
+p <- data.frame(content = c("Number of words with rules(total words):", "Number of words without rules(total words):"), proportion = c(percent(number_rule/length(v4)), percent(number_not_rule/length(v4))))
+p
+p1 <- data.frame(content = c("Number of words with rules:", "Number of words without rules:"), proportion = c(percent(number_rule/(number_rule + number_not_rule)), percent(number_not_rule/(number_rule + number_not_rule))))
+p1
+```
+
+From the table, we can see that there are 2.67% of the words when the rule holds and 0.671% of the words when the rule does not hold.
+If we just look at the words with ei or ie, there are 79.9% of the words when the rule holds and 20.1% of the words when the rule does not hold.
+
+# 2. MTA Delays
+
+## a) Clean the dataset
+
+```{r echo=FALSE}
+setwd("/Users/mayue/Documents/GitHub/Ma_Yue/hw06")
+m = readRDS("mta.RDS")
+n <- as.data.frame(m)
+mta_clean <- m %>%
+  filter(is_retweet == FALSE) %>%
+  filter(str_detect(text, "^[^@]")) %>%
+  select(text, created_at)
+head(mta_clean)
+```
+
+The table above is the head of the clean table of MTA twitter concent.
+
+## b) Time of Delay
+
+```{r echo=FALSE}
+library(lubridate)
+library(plyr)
+mta_delay <- mta_clean %>%
+  filter(str_detect(text, "delay")) %>%
+  filter(!str_detect(text, "resume")) %>%
+  filter(!str_detect(text, "[uU][pP][dD][aA][Tt][eE]")) %>%
+  separate(created_at, c("date", "time"), sep = " ") 
+mta_delay <- mta_delay %>%
+  mutate(weekdays = wday(as.Date(date, "%Y-%m-%d"), label = TRUE, abbr = FALSE)) %>%
+  mutate(daytime = cut(strptime(time, format = "%H:%M:%S"), breaks = strptime(c("00:00:00", "06:00:00", "10:00:00", "15:00:00", "18:00:00", "22:00:00", "23:59:59"), format = "%H:%M:%S"), labels = c("night", "mornings", "mid-day", "afternoon", "evening", "night"), include.lowest = TRUE, right = FALSE))
+table(mta_delay$weekdays, mta_delay$daytime)
+```
+
+From the table above, we can see that there are most delays during mid-day on Monday. On a day, there are most delays during mid-days and least delays on morning on average. Meanwhile, there are more delays on weekdays than weekends on average.
+
+## c) Type of Delay
+
+```{r echo=FALSE}
+delay_reason <- str_extract(mta_delay$text, "because of.+at")
+table(delay_reason) %>%
+  sort(decreasing = TRUE) %>%
+  .[1:5]
+```
+From the table above, we can see that the top 5 reasons of delays are:
+1. signal problems;
+2. mechanical problems;
+3. switch problems;
+4. sick passengers;
+5. NYPD activities.
+
+## d) Provide a summary of which train lines are affected by weekday vs. weekend.
+```{r echo=FALSE}
+line <- mta_delay %>%
+  filter(str_detect(text, "[A-G]|[J]|[L-N]|[Q-S]|[W]|[Z]|[1-7]|(SIR)")) %>%
+  mutate(letter = str_extract_all(text, "\\b[A-G]\\b|\\b[J]\\b|\\b[L-N]\\b|\\b[Q-S]\\b|\\b[W]\\b|\\b[Z]\\b|\\b(SIR)\\b")) %>%
+  mutate(number = str_extract_all(text, "\\b[1-7]\\b")) %>%
+  select(weekdays, letter, number)
+line_letter <- line %>%
+  unnest(letter)
+line_letter <- as.data.frame.matrix(table(line_letter)) 
+line_number <- line %>%
+  unnest(number)
+line_number <- as.data.frame.matrix(table(line_number))
+totalline <- cbind(line_number, line_letter) 
+totalline <- as.data.frame(t(totalline)) %>%
+  mutate(weekday = Monday + Tuesday + Wednesday + Thursday + Friday) %>%
+  mutate(weekend = Saturday + Sunday) %>%
+  select(weekday, weekend)
+totalline
+```
+
+From the table above, we can see that line 2 is affected most on weekdays and line A is affected most at weekends. Line Z is affected least both on weekdays and weekends.
+
