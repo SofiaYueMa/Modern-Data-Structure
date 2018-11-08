@@ -1,0 +1,75 @@
+---
+title: "columnsummary"
+author: "Yue Ma"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{columnsummary}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+
+This vignette gives an exact explanaton on the different use of "columnsummary" function. Most of this information is available throughout the R documentation. This is appendix brings it all together in one place. 
+
+Summay function can return some main analysis of the data, including the average, the median, the minimum number, the maximum number, and 1st quarter number and the 3rd quarter number.
+
+# Summary function
+
+```{r}
+data("iris")
+summary(iris)
+```
+
+We can see different summary analysis results here.
+
+# Mean
+```{r}
+library(purrr)
+library(maps)
+data("us.cities")
+us.cities <- keep(us.cities, is.numeric)
+map_dbl(us.cities, mean)
+```
+
+The dataset "diamonds" has different type of variables, here comes out the mean of all the numeric columns. 
+
+# Median
+```{r}
+data("us.cities")
+us.cities <- keep(us.cities, is.numeric)
+map_dbl(us.cities, median)
+```
+
+The dataset "economics" has different type of variables, here comes out the median of all the numeric columns. 
+
+# Minimum
+
+```{r}
+data("us.cities")
+us.cities <- keep(us.cities, is.numeric)
+map_dbl(us.cities, min)
+```
+
+The dataset "mpg" has different type of variables, here comes out the minimum number of all the numeric columns. 
+
+# Maximum
+```{r}
+data("us.cities")
+us.cities <- keep(us.cities, is.numeric)
+map_dbl(us.cities, max)
+```
+
+The dataset "mpg" has different type of variables, here comes out the maximum number of all the numeric columns. 
+
+# Problem you may meet
+
+The dataset you insert should be be default datasets in R, and it is required to install and library the packages that the datasets are in. Please remember to install the package first and put it in your environment.
+

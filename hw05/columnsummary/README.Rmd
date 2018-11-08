@@ -1,0 +1,39 @@
+---
+output: github_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "man/figures/README-",
+  out.width = "100%"
+)
+```
+# columnsummary
+
+The goal of columnsummary is to do summary on all the numeric columns in a data frame.
+
+## Installation
+
+You can install the released version of columnsummary from [CRAN](https://CRAN.R-project.org) with:
+
+``` r
+install.packages("columnsummary")
+```
+
+## Example
+
+This is a basic example which shows you how to solve a common problem:
+
+```{r example}
+col_sum <- function(x = mpg, f = mean) {
+  library(purrr)
+  library(maps)
+  x <- keep(x, is.numeric)
+  map_dbl(x, f)
+}
+
+col_sum(iris, median)
+```
+

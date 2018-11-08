@@ -1,0 +1,18 @@
+Package: columnsummary
+Type: Package
+Title: Bring data frame column summary to R
+Version: 0.1.0
+Depends: R (>= 2.10)
+Author: Yue Ma
+Author@R: person("Yue", "Ma", email = "ym2704@columbia.edu", role = c("aut", "cre"))
+Maintainer: <ym2704@columbia.edu>
+Description: Allow one to do summary on all numeric columns in a data frame.
+License: MIT + file LICENSE
+YEAR: 2018
+    COPYRIGHT HOLDER: Yue Ma
+Encoding: UTF-8
+LazyData: true
+Imports: purrr, maps
+RoxygenNote: 6.1.0.9000
+Suggests: knitr, rmarkdown, mpg
+VignetteBuilder: knitr
