@@ -1,0 +1,115 @@
+---
+title: "Final_submission_homework_2_of_Yue_Ma"
+author: "Yue Ma"
+date: "2018/9/26"
+always_allow_html: yes
+output: 
+   html_document:
+     keep_md: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+# Selection of Data and Tidying 
+
+```{r echo=FALSE}
+setwd("/Users/mayue/Documents/GitHub/Ma_Yue/hw02")
+library(readxl)
+library(reprex)
+library(tidyverse)
+library(tidyr)
+raw_data <- read.csv("U.S._Chronic_Disease_Indicators__CDI_.csv")
+clean_data_1 <- raw_data %>%
+  filter(Question == "Binge drinking prevalence among adults aged >= 18 years") %>%
+  filter(DataValueType == "Crude Prevalence") %>%
+  filter(Stratification1 == "Overall"|Stratification1 == "Male"|Stratification1 == "Female")
+selected_data_1 <- clean_data_1 %>%
+  select(state = LocationDesc, year = YearStart, DataValue, Stratification1)
+head(selected_data_1)
+selected_data_1 <- spread(selected_data_1, key = Stratification1, value = DataValue)
+selected_data_1 <- unite_(selected_data_1, "state_year", c("state","year"))
+```
+
+```{r echo=FALSE}
+clean_data_2 <- raw_data %>%
+  filter(Question == "Poverty") %>%
+  filter(DataValueType == "Crude Prevalence") %>%
+  filter(Stratification1 == "Overall")
+selected_data_2 <- clean_data_2 %>%
+  select(state = LocationDesc, stateabb = LocationAbbr, year = YearStart, DataValue, Stratification1)
+head(selected_data_2)
+selected_data_2 <- spread(selected_data_2, key = Stratification1, value = DataValue)
+selected_data_2 <- unite_(selected_data_2, "state_year", c("state","year"))
+```
+
+## Cleaned dataset in a tidy state-year format
+
+```{r echo=FALSE}
+binge_clean <- full_join(selected_data_2, selected_data_1, by = "state_year")
+head(binge_clean)
+binge_clean <- binge_clean %>%
+  separate("state_year", into = c("state","year"), sep="_") %>%
+select(state, stateabb, year, binge_all = Overall.y, binge_male = Male, binge_female = Female, poverty = Overall.x)
+binge_clean$binge_all = as.numeric(as.character(binge_clean$binge_all))
+binge_clean$binge_male = as.numeric(as.character(binge_clean$binge_male))
+binge_clean$binge_female = as.numeric(as.character(binge_clean$binge_female))
+binge_clean$poverty = as.numeric(as.character(binge_clean$poverty))
+print(binge_clean)
+setwd("/Users/mayue/Documents/GitHub/Ma_Yue/hw02")
+write_csv(binge_clean, "binge_clean.csv")
+```
+
+# Data Transformation and Summary Results
+
+## Top 10 binge drinking states  
+
+```{r echo=FALSE}
+binge_top_10 <- binge_clean %>%
+  select(state, stateabb, year, binge_all, binge_male, binge_female) %>%
+  filter(year == "2016") %>%
+  arrange(desc(binge_all)) %>%
+  head(n=10)
+print(binge_top_10)
+```
+
+## Scatter plot
+
+From the scatter plot below: I find that there is an obvious negative correlation between the the poverty prevalence and the overall binge drinking prevalence in a state.
+
+```{r echo=FALSE}
+library(ggplot2)
+p <- ggplot(binge_clean, aes(poverty, binge_all))
+q <- p + geom_point() + ggtitle('Correlation between the poverty prevalence and the overall binge drinking prevalence')+ ylab("Overall binge drinking prevalence") + xlab("Overall poverty prevalence") + geom_smooth()
+print(q)
+```
+
+
+## Annual growth rate
+
+The first is the table of the 5 states with the largest increases and the second is the table of the 5 states with the largest decreases in binge drinking prevalence over the time period. 
+
+```{r echo=FALSE}
+library(dplyr)
+growth_rate1 <- binge_clean %>%
+  group_by(state) %>%
+  summarise(annualgrowth = (first(na.omit(binge_all)) - last(binge_all))/n()) %>%
+  select(state, annualgrowth) %>%
+  arrange(desc(annualgrowth)) %>% 
+  top_n(5)
+print(growth_rate1, digits = 2)
+```
+
+```{r echo=FALSE}
+library(dplyr)
+growth_rate2 <- binge_clean %>%
+  group_by(state) %>%
+  summarise(annualgrowth = (first(na.omit(binge_all)) - last(binge_all))/n()) %>%
+  select(state, annualgrowth) %>%
+  arrange(annualgrowth) %>%
+  head(5)
+print(growth_rate2, digits = 2)
+```
+
+
