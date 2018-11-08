@@ -44,6 +44,5 @@ Find a picture that is related to the data you choose, donwload it to an \images
 
 # 7. More Markdown
 Using the R Markdown quick reference do the following in a short illustrative example of your choice:
-
 Add a footnote.
 Add a block quote.
