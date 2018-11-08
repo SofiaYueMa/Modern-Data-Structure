@@ -1,0 +1,217 @@
+---
+title: "Final Submission Homework 4 of Yue Ma"
+author: "Yue Ma"
+date: "2018/10/9"
+always_allow_html: yes
+output: 
+   html_document:
+     keep_md: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo=FALSE}
+content <- mget(ls("package:base"), inherits = TRUE)
+base_functions <- Filter(is.function, content)
+```
+
+
+# 1. Functions in the R Base Package
+
+## a) Longest name
+
+```{r echo=FALSE}
+library(purrr)
+library(dplyr)
+function_name <- names(base_functions)
+df <- data.frame(function_name, name_length = map_dbl(function_name, nchar)) %>%
+  arrange(desc(name_length))
+df
+```
+
+From the table above, we can see that function - "getDLLRegisteredRoutines.character" has the longest name with 34 characters.
+
+## b) Number of arguments
+
+```{r echo=FALSE}
+argu_length <- map_dbl(base_functions, ~ length(formals(.)))
+df1 <- data.frame(function_name, argu_length) %>%
+  arrange(desc(argu_length)) %>%
+  top_n(10)
+df1
+```
+ 
+The table df1 present the top 10 functions with the most arguments. As we can see, the function - "scan" has the most arguments with 10 arguments.
+
+## c) No arguments
+
+```{r echo=FALSE}
+a = sum(map_dbl(base_functions, ~ is.null(formals(.))))
+b = sum(map_dbl(base_functions, ~ is.null(formals(.)) & is.primitive(.)))
+df2 <- data.frame(c("Null", "Primitive"), c(a, b))
+df2
+```
+
+I check the number of function arguments with formals() retuning NULL. From the table above, we can see that there 224 functions returning NULL, that means there are 224 base functions without arguments. I also check the number with formals() returning NULL as well as is.primitive(), the output is 183. As a result, the difference is that among all the base functions without arguments, there are 183 primitive functions, and 41 non-primitive functions.  
+
+#2. Infant Mortality and GPD per Capita
+
+## a) Highest and lowest infant mortality rates in 2017
+
+```{r echo=FALSE}
+library(WDI)
+library(RJSONIO)
+library(dplyr)
+library(tidyverse)
+help(WDI)
+df3 <- WDI(country = "all", indicator = c("NY.GDP.PCAP.PP.KD", "SP.DYN.IMRT.IN"), start = 1960, end = 2017, extra = TRUE, cache = NULL)
+df4 <- df3 %>%
+  filter(region != "Aggregates") %>%
+  select(country, region, gdpcap = NY.GDP.PCAP.PP.KD, infmort = SP.DYN.IMRT.IN, year)
+df7 <- df4 %>%
+    filter(year == 2017)
+df5 <- df7 %>%
+  arrange(desc(infmort)) %>%
+  head(5)
+df5
+df6 <- df7 %>%
+  arrange(infmort) %>%
+  head(5)
+df6
+```
+
+The first table is a list of countries with the 5 highest infant mortality rates in 2017 along with their GDP per capita in that year.
+The first table is a list of countries with the 5 lowest infant mortality rates in 2017 along with their GDP per capita in that year.
+
+## b) Overall regression
+
+```{r echo=FALSE}
+library(purrr)
+library(fivethirtyeight)
+lm1 = lm(infmort ~ gdpcap, data = df4)
+summary(lm1)
+coef(lm1)
+gg <- ggplot(df4, aes(x = gdpcap, y = infmort))
+gg <- gg + geom_point() +
+  ggtitle("Correlation between GDP per capita and Infant mortality") +
+  xlab("GDP per capita") +
+  ylab("Infant mortality") +
+  geom_smooth(method = lm)
+gg
+```
+
+From the results and plot above, we can see that p-value: < 2.2e-16, which means there exists a negative correlation bewteen GDP per capita and Infant mortality. The estimate of variable infmort is -9.318e-04, which indicates that for each point higher of GDP per capita, there is 9.318e-04 points lower of infant mortality.
+
+## c) Regression by region
+
+```{r echo=FALSE}
+library(tidyr)
+df8 <- df4 %>%
+  split(df4$region, drop = TRUE) %>%
+  map(~lm(infmort ~ gdpcap, data = .)) %>%
+  map(coefficients) %>%
+  map_dbl("gdpcap") %>%
+  sort(decreasing = TRUE)
+d1 <- data.frame(df8) %>%
+  rownames_to_column(var = "region") 
+names(d1) <- c("region", "coefficient estimates")
+d1
+```
+
+The table above presents the coefficient estimates for the slope for each region.
+
+## d) Regression by country
+
+```{r echo=FALSE}
+library(tidyr)
+
+df10 <- df4 %>%
+  split(df4$country, drop = TRUE) %>%
+  map(safely(~lm(infmort ~ gdpcap, data = .))) %>%
+  transpose()
+no_err <- map_lgl(df10$error, is.null)
+df11 <- df10$result[no_err]
+df_estimate <- df11 %>%
+  map(summary) %>%
+  map(coefficients) %>%
+  map(2)
+df_estimate <- as.data.frame(df_estimate)
+df_estimate <- gather(df_estimate)
+names(df_estimate) <- c("country", "coefes")
+
+df10 <- df4 %>%
+  split(df4$country) %>%
+  map(safely(~lm(infmort ~ gdpcap, data = .))) %>%
+  transpose()
+no_err <- map_lgl(df10$error, is.null)
+df_pvalue <- df10$result[no_err] %>%
+  map(summary) %>%
+  map(coef,drop = TRUE) %>%
+  map(8) 
+no_null <- map_lgl(df_pvalue, function(x) !is.null(x))
+df_pvalue <- df_pvalue[no_null] %>%
+  as.data.frame() %>%
+  t()
+df_pvalue <- as.data.frame(df_pvalue) %>%
+  rownames_to_column(var = "country") 
+names(df_pvalue) <- c("country", "pvalue")
+
+final_result <- left_join(df_estimate, df_pvalue, by = "country") %>%
+  filter(pvalue <= 0.05) %>%
+  filter(pvalue > 0) %>%
+  filter(coefes > 0) %>%
+  arrange(desc(coefes))
+final_result
+a = c(length(final_result$country)/length(df_pvalue$country)*100)
+cat("Percentage =", a, "%")
+
+```
+
+From the results above,  there are 5.405405% of countries have a positive relationship (at the 95% confidence level) between GDP per capita and infant mortality. The 10 countries listed in the table are at odds with the overall regression estimated in part (b). And the coefficient estimates of Madagascar is the largest, as a result, Madagascar is at most odds with the overall regression estimated in part (b).
+
+```{r echo=FALSE}
+overall_result <- left_join(df_pvalue, df_estimate, by = "country")
+gg <- ggplot(overall_result) 
+gg <- gg + geom_histogram(aes(coefes)) +
+  ggtitle("A histogram of the slope coefficients") +
+  xlab("coefficient estimates")
+gg
+```
+
+The histogram above illustrates the variation of the estimated relationship.
+
+## e) Added squared term
+
+```{r echo=FALSE}
+df_withoutr2 <- df4 %>%
+  split(df4$country, drop = TRUE) %>%
+  map(safely(~lm(infmort ~ gdpcap, data = .))) %>%
+  transpose()
+no_err <- map_lgl(df_withoutr2$error, is.null)
+df_withoutr2 <- df_withoutr2$result[no_err] %>%
+  map(summary) %>%
+  map_dbl("adj.r.squared")
+lm_table1 <- data.frame("Country" = names(df_withoutr2),
+                        "r_squared1" = df_withoutr2 )
+
+df_withr2 <- df4 %>%
+  split(df4$country, drop = TRUE) %>%
+  map(safely(~lm(infmort ~ gdpcap + I(gdpcap^2), data = .))) %>%
+  transpose()
+no_err <- map_lgl(df_withr2$error, is.null)
+df_withr2 <- df_withr2$result[no_err] %>%
+  map(summary) %>%
+  map_dbl("adj.r.squared")
+lm_table2 <- data.frame("Country" = names(df_withr2),
+                        "r_squared2" = df_withr2 )
+
+lm_table <- full_join(lm_table1, lm_table2, by = "Country") 
+lm_table
+ab = c(mean(lm_table$r_squared2) - mean(lm_table$r_squared1))
+cat("difference =", ab)
+
+```
+Comparing the average model adjusted R-squared with and without the squared term, adjusted R-squared with the squared term is 0.08120282 larger than that without the squared term. I would recommend to keep the squared term, because most relationship in real economic society is not the strict linear relationship but curve relationship with "U", so it is more accurate to keep the squared term.
+
