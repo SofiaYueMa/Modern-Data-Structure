@@ -1,4 +1,4 @@
-# This short exercise is meant to make sure that all students have set up their Github account correctly, are able to write a simple RMarkdown document, and can submit their solution to their own private repository on Github.
+## This short exercise is meant to make sure that all students have set up their Github account correctly, are able to write a simple RMarkdown document, and can submit their solution to their own private repository on Github.
 
 # R Markdown
 # 1. Create R Markdown document
