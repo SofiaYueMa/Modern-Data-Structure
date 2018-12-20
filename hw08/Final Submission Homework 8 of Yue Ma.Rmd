@@ -1,0 +1,156 @@
+---
+title: "Final Submission Homework 8 of Yue Ma"
+author: "Yue Ma"
+date: "11/15/2018"
+always_allow_html: yes
+output: 
+   html_document:
+     keep_md: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Writing a simple API client
+
+## 1. Choose an API
+
+a) I choose Yelp Business search API, I can get the data about businesses by keyword, category, location, price level, etc using this API.
+
+b) The link to the API documentation is : https://www.yelp.com/developers/documentation/v3/business_search
+
+c) The base URL of Yelp business search API I intend to use is : https://api.yelp.com/v3/businesses/search
+
+## 2. Authentication
+
+a) Briefly explain how the API authenticates the user:
+Yelp Fusion API uses private API Keys to authenticate requests. To authenticate the call to an endpoint, there are only 2 steps: The first step is to create an app to obtain your private API Key. The second step is to authenticate API calls with the API Key.
+
+b) To get my API key, I firstly create APP in the url: https://www.yelp.com/developers/v3/manage_app. After getting my API key, I save your account key in the .Renviron file:
+## Yelp Fusion API Key
+Yelp_Fusion_Key = b83YP7YDDX...
+Then, I authenticated API calls with the API Key by setting the Authorization HTTP header value as Bearer API_KEY.(details see below in 3 part)
+The relevant URL is: https://www.yelp.com/developers/documentation/v3/authentication
+
+## 3. Send a Simple GET request
+```{r echo=TRUE}
+library(httr)
+library(purrr)
+API_key <- Sys.getenv("Yelp_Fusion_Key")
+baseurl_yelp <- "https://api.yelp.com/v3/businesses/search"
+term <- "restaurants"
+location <- "New York City"
+limit <- 50
+radius <- 16094
+r <- GET(baseurl_yelp,
+         query = list(term = term, location = location, 
+                               limit = limit,
+                               radius = radius),
+         add_headers('Authorization' = paste("Bearer", API_key)))
+http_status(r)
+http_type(r)
+```
+
+I choose 4 query parameters here: term, location, limit and radius.
+I want to find all Dunkin Donuts locations within 10 miles (16094 meters) of New York City:
+The term is business name with "restaurants".
+The location indicates the geographic area to be used when searching for businesse with "New York City".
+The limit indicates the number of business results to return with "50".
+The radius is used as a suggestion to the search within 10 miles (16094 meters).
+
+As the results above, the status of the request is 200 (success), the type of the response is JSON.
+
+## 4. Parse the response and Create a dataset
+a) Take the response returned by the API and turn it into a data frame. Show the code how this is done.
+```{r echo=TRUE}
+r
+```
+
+The results above show the response returned by the API.
+
+```{r echo=TRUE}
+library(jsonlite)
+cont <- r$content
+char <- rawToChar(r$content)
+df <- fromJSON(char, simplifyDataFrame = TRUE)
+typeof(df)
+names(df)
+names(df$businesses)
+```
+I turn it into a usefsul R object - list, seen as above, including business, total and region.
+The business is a dataframe showing some usesful information, including id, alias, name, review account, rating, phone number, price, and distance. 
+
+b) Create a dataset (in data frame format) for multiple records.
+```{r echo=FALSE}
+library(dplyr)
+NYC_restaurants <- df$businesses %>%
+  select(id, name, rating, review_count, location, price, phone, distance)
+head(NYC_restaurants)
+```
+I create the dataset called NYC_restaurant, which indicates some usesful information of restaurants within 10 miles of New York City (the region center is (-73.99429, 40.70544)). The dataframe above shows 6 rows of the dataset. Due to the API limit with maximum of 50, I can just create a dataset with size of 50 maximum. The full size dataset is the file called __data.rds__.
+
+c) Provide some summary statistics of the data.
+```{r echo=FALSE}
+NYC_restaurants1 <- NYC_restaurants %>%
+  select(-location)
+summary(NYC_restaurants1)
+table(NYC_restaurants1$price)
+NYC_restaurants2 <- NYC_restaurants1 %>%
+  filter(price == "$$$") %>%
+  select(name)
+NYC_restaurants2
+saveRDS(NYC_restaurants, file = "data.rds")
+```
+From the results above, we can get the conclusion below: (analysis based on 50 restaurants showed within 10 miles of NYC)
+1. The mean of the restaurant rating is 4.22 out of 5.00, which indicates that the quality of the targeted restaurants is high.
+2. The mean of the review counts of the restaurant is 1121.6, the restaurant with the most review counts is Joe's Shanghai with 5480 reviews; the restaurant with the least review counts is Bernie's with 16 reviews.
+3. The mean of the distance of the restaurant is 3168.7 meters.
+4. 47 out of 50 restaurants have a price level of 2 dollars, and 2 out of 50 restaurants have a price level of 3 dollars, which indicates that most of the restaurants have a modest price. The 2 restuarants with higher price level are Boucherie West Village, and Antica Ristorante.
+
+## 5. API Client
+```{r echo=TRUE}
+yelp_business_search <- function(term = "food", location = "New York City", 
+                                 radius = "16094", limit = "10", return_type = "dataframe") {
+  
+  baseurl_yelp <- "https://api.yelp.com/v3/businesses/search"
+  r <- GET(baseurl_yelp,
+         query = list(term = term, location = location, 
+                               limit = limit,
+                               radius = radius),
+         add_headers('Authorization' = paste("Bearer", API_key)))
+  if (http_error(r)){
+    warning("The request produced an error.")
+  } else {
+    r
+    cont <- r$content
+    char <- rawToChar(r$content)
+    df <- fromJSON(char, simplifyDataFrame = TRUE)
+  if (return_type == "dataframe"){
+    finalresults <- df$businesses %>%
+      select(id, name, rating, review_count, location, price, phone, distance)
+    print(finalresults) 
+  } else{
+    df
+  }
+  }
+}
+
+NYC_food <- yelp_business_search(term = "food", location = "New York City", radius = "16094", limit = "10", return_type = "dataframe")
+saveRDS(NYC_food, file = "api_client_output.RDS")
+```
+
+The above returns for the default values.
+
+```{r echo=TRUE}
+yelp_business_search(term = "sports", location = "PA", radius = "16094", limit = "5", return_type = "list")
+```
+
+The above returns the values with list.
+
+```{r}
+yelp_business_search(term = "sports", location = "PA", radius = "160940", limit = "5", return_type = "list")
+```
+
+The above informs the user of any errors.
+

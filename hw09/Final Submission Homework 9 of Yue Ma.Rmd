@@ -1,0 +1,176 @@
+---
+title: "Final Submission Homework 9 of Yue Ma"
+author: "Yue Ma"
+date: "11/21/2018"
+always_allow_html: yes
+output: 
+   html_document:
+     keep_md: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Web Scraping with Selectors
+
+## 1. Get HTML
+```{r}
+library(xml2)
+library(httr)
+library(rvest)
+url_wiki <- "https://en.wikipedia.org/wiki/Mitch_McConnell"
+wiki <- read_html(url_wiki)
+wiki
+mm_table <- html_node(x = wiki, xpath = '//*[@id="mw-content-text"]/div/table[2]')
+mm_table
+```
+
+## 2. Get the info box
+a) Find the CSS class of the infobox.
+THe CSS class of the infobox is "infobox.vcard".
+
+b) Extract the part of the HTML document that contains the infobox using the CSS information.
+```{r}
+infobox <- wiki %>%
+  html_node(".infobox.vcard") %>%
+  html_table() 
+infobox
+```
+
+## 3. Make a data frame
+a) Parse the infobox table HTML you obtained above into a data frame.
+```{r}
+infobox_dataframe <- as.data.frame(infobox)
+head(infobox_dataframe)
+```
+
+b) Name the columns of the table you obtain key and value. 
+```{r}
+library(dplyr)
+colnames(infobox_dataframe) <- c("key", "value")
+head(infobox_dataframe)
+```
+
+c) Filter the data frame.
+```{r}
+library(stringr)
+infobox_dataframe1 <- infobox_dataframe %>%
+  filter(key == "Political party" | key == "Children") 
+data1 <- data.frame(key = c("Full name"), value = colnames(infobox)) %>%
+  head(1)
+infobox_dataframe1 <- rbind(data1, infobox_dataframe1)
+infobox_dataframe1
+```
+
+## 4. Make a function
+
+```{r}
+get_wiki_info <- function(url) {
+  url_wiki <- url
+  wiki <- read_html(url_wiki)
+  infobox <- wiki %>%
+  html_node(".infobox.vcard") %>%
+  html_table() 
+  infobox_dataframe <- as.data.frame(infobox)
+  colnames(infobox_dataframe) <- c("key", "value")
+  infobox_dataframe1 <- infobox_dataframe %>%
+  filter(key == "Political party" | key == "Children") 
+  data1 <- data.frame(key = c("Full name"), value = colnames(infobox)) %>%
+  head(1)
+  infobox_dataframe1 <- rbind(data1, infobox_dataframe1)
+  infobox_dataframe1
+}  
+
+get_wiki_info("https://en.wikipedia.org/wiki/Tammy_Duckworth")
+get_wiki_info("https://en.wikipedia.org/wiki/Susan_Collins")
+```
+
+Fix the function.
+```{r}
+get_wiki_info <- function(url) {
+  url_wiki <- url
+  wiki <- read_html(url_wiki)
+  infobox <- wiki %>%
+  html_node(".infobox.vcard") %>%
+  html_table() 
+  infobox_dataframe <- as.data.frame(infobox)
+  colnames(infobox_dataframe) <- c("key", "value")
+  infobox_dataframe1 <- infobox_dataframe %>%
+  filter(key == "Political party" | key == "Children") 
+  data1 <- data.frame(key = c("Full name"), value = colnames(infobox)) %>%
+  head(1)
+  infobox_dataframe1 <- rbind(data1, infobox_dataframe1)
+  if (nrow(infobox_dataframe1) == 2) {
+    data2 <- data.frame(key = c("Children"), value = c("NA"))
+    infobox_dataframe1 <- rbind(infobox_dataframe1, data2)
+    infobox_dataframe1
+  } else {
+  infobox_dataframe1    
+  }
+}  
+
+get_wiki_info("https://en.wikipedia.org/wiki/Tammy_Duckworth")
+get_wiki_info("https://en.wikipedia.org/wiki/Susan_Collins")
+```
+
+## 5. Get all senators' pages
+a) Get the URLs.
+```{r}
+url_senator <- "https://en.wikipedia.org/wiki/Current_members_of_the_United_States_Senate"
+html_senator <- read_html(url_senator) 
+senator <- html_nodes(html_senator, ".fn a") %>%
+  xml_attr("href")
+link_senator <- paste("https://en.wikipedia.org",senator, sep = "")
+link_senator <- as.data.frame(link_senator)
+link_senator$senator <- as.character(link_senator$link_senator) 
+link_senator <- link_senator %>%
+  select(senator)
+```
+
+b) Create a loop that uses get_wiki_info function.
+```{r}
+results <- vector("list", 100)
+for (i in 1:100) {
+results[[i]] <- get_wiki_info(link_senator[i,])
+}
+```
+
+c) Clean up your data to provide some summary statistics. How many children does the average senator have? What about by party affiliation?
+```{r}
+library(tidyr)
+total_results <- as.data.frame(results)
+total_results <- as.data.frame(t(total_results))
+results_dup <- total_results[!duplicated(total_results),]
+results_dup <- results_dup[-1,] 
+colnames(results_dup) <- c("Full name", "Political party", "Children")
+rownames(results_dup) <- NULL
+results_dup[9,3] <- 1
+results_dup[30,3] <- 3
+results_dup[36,3] <- 1
+results_dup[43,3] <- 2
+results_dup[50,3] <- 4
+results_dup[59,3] <- 2
+results_dup[61,3] <- 1
+results_dup[90,3] <- 1
+results_dup[95,3] <- 3
+results_dup$Children <- as.numeric(as.character(results_dup$Children))
+mean(results_dup$Children, na.rm = TRUE)
+```
+The senators have 2.75 children on average.
+
+
+```{r}
+democratic_senator <- filter(results_dup, grepl('Democratic', `Political party`)) 
+nrow(democratic_senator)
+mean(democratic_senator$Children, na.rm = TRUE)
+```
+There are 47 senators from Democratic party and have 2.45 children on average.
+
+```{r}
+republican_senator <- filter(results_dup, grepl('Republican', `Political party`)) 
+nrow(republican_senator)
+mean(republican_senator$Children, na.rm = TRUE)
+```
+
+There are 51 senators from Republican party and have 2.98 children on average.
